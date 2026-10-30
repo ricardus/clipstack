@@ -25,4 +25,11 @@ security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >&2
 security import "$P12" -k "$KEYCHAIN" -f pkcs12 -P "$CLIPSTACK_CERT_PASSWORD" -T /usr/bin/codesign >&2
 security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
 
+# codesign looks for the private key through the search list even when given
+# --keychain. Only on a CI runner: never rewrite a developer's search list.
+if [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+    # shellcheck disable=SC2046
+    security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"') >&2
+fi
+
 echo "$KEYCHAIN"

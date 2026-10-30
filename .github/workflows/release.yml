@@ -1,4 +1,7 @@
 # Builds Clipstack.app on every version tag and attaches a zip to the release.
+# Pull requests run the same build and signing without publishing, so a broken
+# release is caught before tagging.
+#
 # The app is signed with a stable self-signed identity (so Accessibility
 # survives updates) but not notarized; see "Install" in the README. Without the
 # signing secrets, as in a fork, it falls back to ad-hoc signing.
@@ -7,6 +10,7 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  pull_request:
 
 permissions:
   contents: write
@@ -17,10 +21,12 @@ jobs:
     env:
       CLIPSTACK_CERT_P12: ${{ secrets.CLIPSTACK_CERT_P12 }}
       CLIPSTACK_CERT_PASSWORD: ${{ secrets.CLIPSTACK_CERT_PASSWORD }}
+      IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Stamp version from tag
+        if: env.IS_TAG == 'true'
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" Resources/Info.plist
@@ -29,8 +35,16 @@ jobs:
       - name: Import signing identity
         if: env.CLIPSTACK_CERT_P12 != ''
         run: |
-          echo "CLIPSTACK_SIGN_KEYCHAIN=$(./scripts/ci-keychain.sh)" >> "$GITHUB_ENV"
-          echo "CLIPSTACK_SIGN_IDENTITY=Clipstack Release" >> "$GITHUB_ENV"
+          # Assigned first so a failure inside the script fails the step.
+          KEYCHAIN="$(./scripts/ci-keychain.sh)"
+          IDENTITY="$(security find-identity -p codesigning "$KEYCHAIN" | awk '/"Clipstack Release"/ { print $2; exit }')"
+          if [[ -z "$IDENTITY" ]]; then
+            security find-identity -p codesigning "$KEYCHAIN"
+            echo "::error::Clipstack Release identity not found in $KEYCHAIN"
+            exit 1
+          fi
+          echo "CLIPSTACK_SIGN_KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+          echo "CLIPSTACK_SIGN_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
 
       - name: Build
         env:
@@ -38,8 +52,10 @@ jobs:
         run: |
           ./build.sh
           lipo -archs dist/Clipstack.app/Contents/MacOS/Clipstack
+          codesign -d -r- dist/Clipstack.app 2>&1 | grep designated
 
       - name: Package
+        if: env.IS_TAG == 'true'
         run: |
           cd dist
           ZIP="Clipstack-$GITHUB_REF_NAME.zip"
@@ -47,6 +63,7 @@ jobs:
           shasum -a 256 "$ZIP" | tee "$ZIP.sha256"
 
       - name: Publish release
+        if: env.IS_TAG == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
