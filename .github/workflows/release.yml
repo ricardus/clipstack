@@ -1,0 +1,39 @@
+# Builds Clipstack.app on every version tag and attaches a zip to the release.
+# The app is ad-hoc signed and not notarized; see "Install" in the README.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stamp version from tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" Resources/Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GITHUB_RUN_NUMBER" Resources/Info.plist
+
+      - name: Build
+        run: ./build.sh
+
+      - name: Package
+        run: |
+          cd dist
+          ZIP="Clipstack-$GITHUB_REF_NAME.zip"
+          ditto -c -k --keepParent Clipstack.app "$ZIP"
+          shasum -a 256 "$ZIP" | tee "$ZIP.sha256"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/Clipstack-*.zip dist/Clipstack-*.zip.sha256 \
+            --title "Clipstack $GITHUB_REF_NAME" --generate-notes
