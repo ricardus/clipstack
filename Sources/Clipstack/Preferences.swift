@@ -14,6 +14,7 @@ final class Preferences {
         static let launchAtLogin = "launchAtLogin"
         static let hotKeyCode = "hotKeyCode"
         static let hotKeyModifiers = "hotKeyModifiers"
+        static let recognizeText = "recognizeText"
     }
 
     /// Apps whose clipboard writes are never recorded. Password managers first:
@@ -36,7 +37,8 @@ final class Preferences {
             Key.excludedBundleIDs: Self.defaultExcludedBundleIDs,
             Key.launchAtLogin: false,
             Key.hotKeyCode: Int(Shortcut.default.keyCode),
-            Key.hotKeyModifiers: Int(Shortcut.default.modifiers)
+            Key.hotKeyModifiers: Int(Shortcut.default.modifiers),
+            Key.recognizeText: true
         ])
     }
 
@@ -58,6 +60,12 @@ final class Preferences {
     var launchAtLogin: Bool {
         get { defaults.bool(forKey: Key.launchAtLogin) }
         set { defaults.set(newValue, forKey: Key.launchAtLogin) }
+    }
+
+    /// Read the text in captured images so search can find it. On-device only.
+    var recognizeText: Bool {
+        get { defaults.bool(forKey: Key.recognizeText) }
+        set { defaults.set(newValue, forKey: Key.recognizeText) }
     }
 
     /// The global shortcut that opens the history panel.

@@ -114,6 +114,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         screenshotsItem.tag = 1
         menu.addItem(screenshotsItem)
 
+        let ocrItem = NSMenuItem(title: "Search Text in Images",
+                                 action: #selector(toggleTextRecognition),
+                                 keyEquivalent: "")
+        ocrItem.target = self
+        ocrItem.tag = 5
+        menu.addItem(ocrItem)
+
         let loginItem = NSMenuItem(title: "Launch at Login",
                                    action: #selector(toggleLaunchAtLogin),
                                    keyEquivalent: "")
@@ -157,6 +164,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if enabled { screenshots.start() } else { screenshots.stop() }
     }
 
+    @objc private func toggleTextRecognition() {
+        Preferences.shared.recognizeText.toggle()
+        store.recognizeTextIfNeeded()
+    }
+
     @objc private func toggleLaunchAtLogin() {
         let enabled = !Preferences.shared.launchAtLogin
         do {
@@ -184,6 +196,7 @@ extension AppDelegate: NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.item(withTag: 1)?.state = Preferences.shared.watchScreenshots ? .on : .off
         menu.item(withTag: 2)?.state = Preferences.shared.launchAtLogin ? .on : .off
+        menu.item(withTag: 5)?.state = Preferences.shared.recognizeText ? .on : .off
 
         // The key equivalent only labels the item; the hotkey does the work.
         let shortcut = Preferences.shared.shortcut
