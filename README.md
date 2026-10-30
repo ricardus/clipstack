@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/hero.png" width="760" alt="The Clipstack panel: a search field, type filters and a list of recent clips">
+  <img src="docs/assets/hero.png" width="760" alt="Sketch of the Clipstack panel: a search field, type filters and a list of recent clips">
 </p>
 
 Press `Cmd+Shift+V` anywhere. Search what you copied, step through text, links,

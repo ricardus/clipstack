@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clipstack</title>
+<meta name="description" content="Clipboard and screenshot history for the macOS menu bar. Local only: no account, no network, no telemetry. Free and open source.">
+<meta property="og:title" content="Clipstack">
+<meta property="og:description" content="Everything you copied, still there. Clipboard and screenshot history for the macOS menu bar.">
+<meta property="og:image" content="https://ricardus.github.io/clipstack/assets/social.png">
+<meta property="og:url" content="https://ricardus.github.io/clipstack/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="assets/icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Schibsted+Grotesk:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #E4E9EB;
+  --surface: #F7F9FA;
+  --ink: #14181D;
+  --muted: #5C6770;
+  --line: rgba(20, 24, 29, .10);
+  --accent: #29BBBB;
+  --accent-ink: #0E6B6B;
+  --tier-2: rgba(20, 24, 29, .28);
+  --shadow: 0 1px 0 rgba(255,255,255,.7) inset, 0 30px 60px -20px rgba(20,24,29,.28), 0 10px 20px -10px rgba(20,24,29,.18);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0B0E11;
+    --surface: #171C21;
+    --ink: #E6E8EA;
+    --muted: #8D98A1;
+    --line: rgba(230, 232, 234, .10);
+    --accent-ink: #5FD6D6;
+    --tier-2: rgba(230, 232, 234, .34);
+    --shadow: 0 1px 0 rgba(255,255,255,.05) inset, 0 30px 60px -20px rgba(0,0,0,.7);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0B0E11; --surface: #171C21; --ink: #E6E8EA; --muted: #8D98A1;
+  --line: rgba(230,232,234,.10); --accent-ink: #5FD6D6;
+  --tier-2: rgba(230,232,234,.34);
+  --shadow: 0 1px 0 rgba(255,255,255,.05) inset, 0 30px 60px -20px rgba(0,0,0,.7);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 16px/1.55 "IBM Plex Sans", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+.wrap { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+
+/* Top bar */
+.top { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; }
+.brand { display: flex; align-items: center; gap: 10px; font: 800 18px/1 "Schibsted Grotesk", sans-serif; text-decoration: none; }
+.brand img { width: 30px; height: 30px; }
+.top nav { display: flex; gap: 22px; font-size: 14px; color: var(--muted); }
+.top nav a { text-decoration: none; }
+.top nav a:hover { color: var(--ink); }
+
+/* Hero */
+.hero { display: grid; grid-template-columns: 1fr 520px; gap: 56px; align-items: center; padding: 48px 0 96px; }
+.hero > * { min-width: 0; }
+/* The headline is set like the mark: three cards, each line wider and stronger than the one above. */
+.stack-title { margin: 0 0 28px; font: 900 clamp(44px, 6.4vw, 80px)/.92 "Schibsted Grotesk", sans-serif; letter-spacing: -.045em; }
+.stack-title span { display: block; width: fit-content; white-space: nowrap; }
+.stack-title .l1 { color: var(--tier-2); margin-left: 1.15em; }
+.stack-title .l2 { color: color-mix(in srgb, var(--ink) 62%, transparent); margin-left: .55em; }
+.stack-title .l3 { color: var(--accent); }
+.lede { max-width: 30em; margin: 0 0 32px; font-size: 18px; color: var(--muted); }
+.lede strong { color: var(--ink); font-weight: 500; }
+
+.install { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.cmd {
+  display: inline-flex; align-items: center; gap: 12px; max-width: 100%;
+  padding: 6px 6px 6px 16px; border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--line);
+  font: 500 14px/1 "IBM Plex Mono", monospace;
+}
+.cmd > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cmd .prompt { color: var(--accent-ink); user-select: none; }
+.btn {
+  appearance: none; border: 0; cursor: pointer; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 8px; flex: none;
+  font: 600 14px/1 "IBM Plex Sans", sans-serif;
+  padding: 11px 16px; border-radius: 9px;
+}
+.btn-copy { background: var(--ink); color: var(--bg); padding: 9px 12px; font-size: 13px; }
+.btn-primary { background: var(--accent); color: #062A2A; padding: 15px 20px; border-radius: 12px; }
+.btn-primary:hover { filter: brightness(1.06); }
+.fine { margin: 16px 0 0; font-size: 13px; color: var(--muted); }
+
+/* Panel mock: a sketch of the real SwiftUI panel, same paddings and radii. */
+.demo { position: relative; }
+.panel {
+  background: var(--surface); border-radius: 14px; box-shadow: var(--shadow);
+  border: 1px solid var(--line); overflow: hidden;
+  font-family: -apple-system, "SF Pro Text", "IBM Plex Sans", system-ui, sans-serif;
+}
+.p-search { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.p-search svg { color: var(--muted); flex: none; }
+.p-search input { all: unset; flex: 1; min-width: 0; font-size: 14px; color: var(--ink); }
+.p-search input::placeholder { color: var(--muted); }
+.p-chips { display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+.chip {
+  all: unset; cursor: pointer; flex: none; font-size: 11px; padding: 4px 9px; border-radius: 99px;
+  background: color-mix(in srgb, var(--ink) 7%, transparent); transition: background .12s, color .12s;
+}
+.chip[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 90%, transparent); color: #fff; font-weight: 600; }
+.chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.p-list { list-style: none; margin: 0; padding: 8px; height: 336px; overflow: hidden; }
+.row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 8px; transition: background .12s; }
+.row.sel { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.row.new { animation: land .42s cubic-bezier(.2, .9, .3, 1.2); }
+@keyframes land { from { transform: translateY(-14px) scale(.98); opacity: 0; } }
+.thumb { width: 34px; height: 34px; flex: none; border-radius: 6px; display: grid; place-items: center; background: color-mix(in srgb, var(--ink) 6%, transparent); color: var(--muted); overflow: hidden; }
+.thumb.shot { background: linear-gradient(135deg, #2A2F36, #0B0E11); }
+.thumb.shot i { width: 70%; height: 46%; border-radius: 2px; background: linear-gradient(90deg, var(--accent) 0 40%, #E6E8EA55 40%); }
+.r-text { min-width: 0; flex: 1; }
+.r-main { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.r-meta { font-size: 11px; color: var(--muted); }
+.pin { color: var(--muted); flex: none; }
+.empty { text-align: center; color: var(--muted); font-size: 13px; padding: 120px 0; }
+
+.toast {
+  position: absolute; left: 50%; top: -14px; transform: translate(-50%, -100%);
+  padding: 7px 13px; border-radius: 99px; background: var(--ink); color: var(--bg);
+  font-size: 12px; line-height: 1; white-space: nowrap;
+  opacity: 0; transition: opacity .18s, transform .18s; pointer-events: none;
+}
+.toast.on { opacity: 1; transform: translate(-50%, -112%); }
+.hint { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 18px; font-size: 13px; color: var(--muted); }
+kbd {
+  display: inline-grid; place-items: center; min-width: 24px; height: 24px; padding: 0 6px;
+  border-radius: 6px; background: var(--surface); border: 1px solid var(--line);
+  box-shadow: 0 2px 0 var(--line); font: 500 13px/1 -apple-system, system-ui, "IBM Plex Sans", sans-serif; color: var(--ink);
+}
+
+/* Sections */
+section { padding: 88px 0; border-top: 1px solid var(--line); }
+.eyebrow { margin: 0 0 14px; font: 500 12px/1 "IBM Plex Mono", monospace; letter-spacing: .08em; text-transform: uppercase; color: var(--accent-ink); }
+h2 { margin: 0 0 40px; max-width: 18em; font: 800 clamp(30px, 4vw, 46px)/1.04 "Schibsted Grotesk", sans-serif; letter-spacing: -.03em; }
+
+.ledger { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.ledger > div { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 28px; }
+.ledger h3 { margin: 0 0 18px; font: 600 15px/1.2 "IBM Plex Sans", sans-serif; display: flex; align-items: center; gap: 10px; }
+.dot { width: 10px; height: 10px; border-radius: 3px; background: var(--accent); }
+.dot.off { background: transparent; border: 1.5px solid var(--muted); }
+.ledger ul { margin: 0; padding: 0; list-style: none; }
+.ledger li { padding: 10px 0; border-top: 1px solid var(--line); font-size: 15px; }
+.ledger li:first-child { border-top: 0; }
+.ledger li small { display: block; color: var(--muted); font-size: 13px; }
+
+.keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0 32px; }
+.key { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 0; border-top: 1px solid var(--line); font-size: 15px; }
+.key span:last-child { display: flex; gap: 4px; flex: none; }
+
+.facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+.facts p { margin: 0; color: var(--muted); font-size: 15px; }
+.facts b { display: block; margin-bottom: 6px; color: var(--ink); font: 700 17px/1.3 "Schibsted Grotesk", sans-serif; }
+
+footer { padding: 40px 0 56px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+
+@media (max-width: 980px) {
+  .hero { grid-template-columns: 1fr; gap: 64px; padding-top: 24px; }
+  .demo { max-width: 560px; }
+}
+@media (max-width: 680px) {
+  .wrap { padding: 0 16px; }
+  .top nav a:not(:last-child) { display: none; }
+  .ledger, .facts { grid-template-columns: 1fr; }
+  .cmd { font-size: 12px; }
+  .p-list { height: 300px; }
+  section { padding: 64px 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="./"><img src="assets/icon.png" alt="">Clipstack</a>
+    <nav>
+      <a href="#privacy">Privacy</a>
+      <a href="#keys">Shortcuts</a>
+      <a href="https://github.com/ricardus/clipstack">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="hero">
+      <div>
+        <h1 class="stack-title" aria-label="Everything you copied, still there.">
+          <span class="l1" aria-hidden="true">Everything</span>
+          <span class="l2" aria-hidden="true">you copied,</span>
+          <span class="l3" aria-hidden="true">still there.</span>
+        </h1>
+        <p class="lede">Clipboard and screenshot history for the macOS menu bar. Press <strong>⇧⌘V</strong> anywhere, find it, paste it. <strong>No account, no network, no telemetry.</strong></p>
+        <div class="install">
+          <a class="btn btn-primary" href="https://github.com/ricardus/clipstack/releases/latest">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v9m0 0L4.5 7.5M8 11l3.5-3.5M2.5 14h11"/></svg>
+            Download for Mac
+          </a>
+          <div class="cmd"><span><span class="prompt">$ </span><span id="brew">brew install ricardus/tap/clipstack</span></span><button class="btn btn-copy" id="copy-brew" type="button">Copy</button></div>
+        </div>
+        <p class="fine">Free and open source (MIT). macOS 14 or later, Apple Silicon.</p>
+      </div>
+
+      <div class="demo">
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+        <div class="panel" aria-label="Interactive sketch of the Clipstack panel">
+          <div class="p-search">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="7" cy="7" r="5"/><path d="m11 11 3.5 3.5"/></svg>
+            <input id="q" type="text" placeholder="Search history" aria-label="Search the sample history" autocomplete="off">
+          </div>
+          <div class="p-chips" id="chips"></div>
+          <ul class="p-list" id="list"></ul>
+        </div>
+        <div class="hint">
+          <span><kbd>←</kbd> <kbd>→</kbd> switch type</span>
+          <span><kbd>↑</kbd> <kbd>↓</kbd> move</span>
+          <span>Copy any text on this page and watch it land.</span>
+        </div>
+      </div>
+    </div>
+
+    <section id="privacy">
+      <p class="eyebrow">What it keeps</p>
+      <h2>A clipboard history should know what to forget.</h2>
+      <div class="ledger">
+        <div>
+          <h3><span class="dot"></span>Recorded</h3>
+          <ul>
+            <li>Text, links and colours<small>Tagged with the app they came from.</small></li>
+            <li>Images and files<small>Drag them back out into any app.</small></li>
+            <li>New screenshots<small>Picked up from your screenshot folder the moment they appear.</small></li>
+          </ul>
+        </div>
+        <div>
+          <h3><span class="dot off"></span>Ignored on purpose</h3>
+          <ul>
+            <li>Anything a password manager marks as concealed<small>The pasteboard flag 1Password and friends set so history apps skip them.</small></li>
+            <li>Everything copied from excluded apps<small>1Password, Bitwarden, LastPass, Dashlane, Enpass, Keychain Access, Apple Passwords. Add your own.</small></li>
+            <li>The network<small>No sync, no analytics, no update pings. History stays in Application Support.</small></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="keys">
+      <p class="eyebrow">Keyboard first</p>
+      <h2>Never reach for the mouse.</h2>
+      <div class="keys">
+        <div class="key"><span>Open history</span><span><kbd>⇧</kbd><kbd>⌘</kbd><kbd>V</kbd></span></div>
+        <div class="key"><span>Move selection</span><span><kbd>↑</kbd><kbd>↓</kbd></span></div>
+        <div class="key"><span>Switch type filter</span><span><kbd>←</kbd><kbd>→</kbd></span></div>
+        <div class="key"><span>Paste selected</span><span><kbd>↩</kbd></span></div>
+        <div class="key"><span>Pin or unpin</span><span><kbd>⌘</kbd><kbd>P</kbd></span></div>
+        <div class="key"><span>Delete selected</span><span><kbd>⌘</kbd><kbd>⌫</kbd></span></div>
+      </div>
+    </section>
+
+    <section>
+      <p class="eyebrow">Under the hood</p>
+      <h2>Small enough to read in an afternoon.</h2>
+      <div class="facts">
+        <p><b>Native</b>Swift and SwiftUI. A menu bar app with no Dock icon and no Electron.</p>
+        <p><b>Zero dependencies</b>About 1,600 lines. Build it yourself with one script in under a minute.</p>
+        <p><b>Yours</b>MIT licensed. Fork it, change the shortcut, change the colour.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Clipstack, made by <a href="https://github.com/ricardus">Ricardo de la Torre</a>.</span>
+    <span><a href="https://github.com/ricardus/clipstack">Source on GitHub</a></span>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const KINDS = [
+    { id: null, label: "All" },
+    { id: "text", label: "Text" },
+    { id: "link", label: "Links" },
+    { id: "image", label: "Images" },
+    { id: "file", label: "Files" },
+    { id: "color", label: "Colors" },
+  ];
+  const ICONS = {
+    text: '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 4h10M8 4v9M5.5 13h5"/></svg>',
+    link: '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M6.5 9.5l3-3M7 4.5l1-1a2.8 2.8 0 0 1 4 4l-1 1M9 11.5l-1 1a2.8 2.8 0 0 1-4-4l1-1"/></svg>',
+    file: '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M4 2h5l3 3v9H4z"/><path d="M9 2v3h3"/></svg>',
+  };
+  const PIN = '<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor" aria-label="Pinned"><path d="M10.5 1.5l4 4-2 1-2.5 2.5.5 3.5-1.5 1.5-3-3-3.5 3.5-1-1L5 10 2 7l1.5-1.5L7 6l2.5-2.5z"/></svg>';
+  const MIN = 60e3;
+  const now = Date.now();
+  let items = [
+    { kind: "text", text: "Meet at 10:30, second floor, room by the lift", app: "Messages", at: now - 2 * MIN, pinned: true },
+    { kind: "color", text: "#29BBBB", app: "Figma", at: now - 4 * MIN },
+    { kind: "image", text: "Screenshot 2026-10-30 at 11.42.07", app: "Screenshot", at: now - 9 * MIN },
+    { kind: "link", text: "https://developer.apple.com/documentation/appkit/nspasteboard", app: "Safari", at: now - 14 * MIN },
+    { kind: "text", text: "git rebase -i HEAD~3", app: "Terminal", at: now - 31 * MIN },
+    { kind: "file", text: "Q4 roadmap.key", app: "Finder", at: now - 52 * MIN },
+    { kind: "text", text: "Thanks, that works for me. Talk tomorrow!", app: "Mail", at: now - 70 * MIN },
+    { kind: "link", text: "https://github.com/ricardus/clipstack", app: "Arc", at: now - 180 * MIN },
+    { kind: "color", text: "#14181D", app: "Xcode", at: now - 300 * MIN },
+  ];
+  let kind = null, sel = 0, freshest = null;
+
+  const $ = (id) => document.getElementById(id);
+  const chips = $("chips"), list = $("list"), q = $("q"), toast = $("toast");
+
+  const ago = (t) => {
+    const m = Math.max(0, Math.round((Date.now() - t) / MIN));
+    return m < 1 ? "now" : m < 60 ? `${m} min ago` : `${Math.round(m / 60)} hr ago`;
+  };
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  function visible() {
+    const needle = q.value.trim().toLowerCase();
+    return items
+      .filter((i) => (!kind || i.kind === kind) && (!needle || i.text.toLowerCase().includes(needle)))
+      .sort((a, b) => (b.pinned | 0) - (a.pinned | 0) || b.at - a.at);
+  }
+
+  function thumb(i) {
+    if (i.kind === "color") return `<span class="thumb" style="background:${i.text}"></span>`;
+    if (i.kind === "image") return `<span class="thumb shot"><i></i></span>`;
+    return `<span class="thumb">${ICONS[i.kind]}</span>`;
+  }
+
+  function render() {
+    chips.innerHTML = KINDS.map((k) =>
+      `<button class="chip" type="button" data-kind="${k.id ?? ""}" aria-pressed="${k.id === kind}">${k.label}</button>`).join("");
+    const rows = visible();
+    sel = Math.min(sel, Math.max(rows.length - 1, 0));
+    list.innerHTML = rows.length ? rows.map((i, n) => `
+      <li class="row${n === sel ? " sel" : ""}${i === freshest ? " new" : ""}">
+        ${thumb(i)}
+        <span class="r-text"><div class="r-main">${esc(i.text)}</div><div class="r-meta">${esc(i.app)} &nbsp;${ago(i.at)}</div></span>
+        ${i.pinned ? `<span class="pin">${PIN}</span>` : ""}
+      </li>`).join("") : `<li class="empty">No matches</li>`;
+    freshest = null;
+  }
+
+  function cycle(step) {
+    const n = KINDS.findIndex((k) => k.id === kind);
+    kind = KINDS[(n + step + KINDS.length) % KINDS.length].id;
+    sel = 0;
+    render();
+  }
+
+  let toastTimer;
+  function announce(text) {
+    toast.textContent = text;
+    toast.classList.add("on");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("on"), 1200);
+  }
+
+  // Anything the visitor copies on this page lands at the top of the sketch,
+  // the way a real copy lands in the app.
+  function capture(text) {
+    text = text.trim().replace(/\s+/g, " ");
+    if (!text) return;
+    const k = /^#[0-9a-f]{6}$/i.test(text) ? "color" : /^https?:\/\//.test(text) ? "link" : "text";
+    items = items.filter((i) => i.text !== text);
+    freshest = { kind: k, text: text.slice(0, 140), app: "This page", at: Date.now() };
+    items.unshift(freshest);
+    kind = null; sel = 0; q.value = "";
+    render();
+    announce(k === "color" ? text.toUpperCase() : k === "link" ? "Link copied" : "Text copied");
+  }
+
+  chips.addEventListener("click", (e) => {
+    const b = e.target.closest(".chip");
+    if (!b) return;
+    const id = b.dataset.kind || null;
+    kind = kind === id ? null : id;
+    sel = 0;
+    render();
+  });
+  q.addEventListener("input", () => { sel = 0; render(); });
+
+  // Same rule as the app: arrows switch type only while the search is empty.
+  document.addEventListener("keydown", (e) => {
+    if (e.metaKey || e.altKey || e.ctrlKey || e.shiftKey) return;
+    if (e.target instanceof HTMLInputElement && e.target.value) return;
+    if (e.target instanceof HTMLElement && e.target.matches("textarea, select, [contenteditable]")) return;
+    const rect = list.getBoundingClientRect();
+    if (rect.bottom < 0 || rect.top > innerHeight) return;
+    if (e.key === "ArrowRight") { e.preventDefault(); cycle(1); }
+    else if (e.key === "ArrowLeft") { e.preventDefault(); cycle(-1); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); sel = Math.min(sel + 1, visible().length - 1); render(); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); sel = Math.max(sel - 1, 0); render(); }
+  });
+
+  document.addEventListener("copy", () => capture(String(document.getSelection() || "")));
+
+  $("copy-brew").addEventListener("click", async (e) => {
+    const button = e.currentTarget;
+    const text = $("brew").textContent;
+    try { await navigator.clipboard.writeText(text); } catch (_) {}
+    button.textContent = "Copied";
+    setTimeout(() => { button.textContent = "Copy"; }, 1400);
+    capture(text);
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
