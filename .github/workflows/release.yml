@@ -33,7 +33,11 @@ jobs:
           echo "CLIPSTACK_SIGN_IDENTITY=Clipstack Release" >> "$GITHUB_ENV"
 
       - name: Build
-        run: ./build.sh
+        env:
+          CLIPSTACK_UNIVERSAL: "1"
+        run: |
+          ./build.sh
+          lipo -archs dist/Clipstack.app/Contents/MacOS/Clipstack
 
       - name: Package
         run: |

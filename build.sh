@@ -9,6 +9,8 @@
 # certificate in your keychain to keep a stable code identity, otherwise macOS
 # treats every rebuild as a new app and re-asks for Accessibility permission.
 # CLIPSTACK_SIGN_KEYCHAIN points codesign at a specific keychain (used by CI).
+#
+# CLIPSTACK_UNIVERSAL=1 builds for Apple Silicon and Intel in one binary.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,9 +23,14 @@ if [[ -n "${CLIPSTACK_SIGN_KEYCHAIN:-}" ]]; then
     KEYCHAIN_ARGS=(--keychain "$CLIPSTACK_SIGN_KEYCHAIN")
 fi
 
+ARCH_ARGS=()
+if [[ "${CLIPSTACK_UNIVERSAL:-}" == "1" ]]; then
+    ARCH_ARGS=(--arch arm64 --arch x86_64)
+fi
+
 echo "==> Building release binary"
-swift build -c release --package-path "$ROOT"
-BINARY="$(swift build -c release --package-path "$ROOT" --show-bin-path)/$APP_NAME"
+swift build -c release --package-path "$ROOT" ${ARCH_ARGS[@]+"${ARCH_ARGS[@]}"}
+BINARY="$(swift build -c release --package-path "$ROOT" ${ARCH_ARGS[@]+"${ARCH_ARGS[@]}"} --show-bin-path)/$APP_NAME"
 
 # The icon is rendered once and cached in dist/ (rm it to redraw).
 ICNS="$DIST/Clipstack.icns"

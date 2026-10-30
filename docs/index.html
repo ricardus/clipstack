@@ -214,7 +214,7 @@ footer { padding: 40px 0 56px; border-top: 1px solid var(--line); font-size: 14p
           </a>
           <div class="cmd"><span><span class="prompt">$ </span><span id="brew">brew install ricardus/tap/clipstack</span></span><button class="btn btn-copy" id="copy-brew" type="button">Copy</button></div>
         </div>
-        <p class="fine">Free and open source (MIT). macOS 14 or later, Apple Silicon.</p>
+        <p class="fine">Free and open source (MIT). macOS 14 or later, Apple Silicon or Intel.</p>
       </div>
 
       <div class="demo">
@@ -244,7 +244,7 @@ footer { padding: 40px 0 56px; border-top: 1px solid var(--line); font-size: 14p
           <ul>
             <li>Text, links and colours<small>Tagged with the app they came from.</small></li>
             <li>Images and files<small>Drag them back out into any app.</small></li>
-            <li>New screenshots<small>Picked up from your screenshot folder the moment they appear.</small></li>
+            <li>New screenshots<small>Picked up the moment they appear, and searchable by the words in them. The text is read on your Mac.</small></li>
           </ul>
         </div>
         <div>
@@ -262,7 +262,7 @@ footer { padding: 40px 0 56px; border-top: 1px solid var(--line); font-size: 14p
       <p class="eyebrow">Keyboard first</p>
       <h2>Never reach for the mouse.</h2>
       <div class="keys">
-        <div class="key"><span>Open history</span><span><kbd>⇧</kbd><kbd>⌘</kbd><kbd>V</kbd></span></div>
+        <div class="key"><span>Open history (or pick your own)</span><span><kbd>⇧</kbd><kbd>⌘</kbd><kbd>V</kbd></span></div>
         <div class="key"><span>Move selection</span><span><kbd>↑</kbd><kbd>↓</kbd></span></div>
         <div class="key"><span>Switch type filter</span><span><kbd>←</kbd><kbd>→</kbd></span></div>
         <div class="key"><span>Paste selected</span><span><kbd>↩</kbd></span></div>
@@ -276,7 +276,7 @@ footer { padding: 40px 0 56px; border-top: 1px solid var(--line); font-size: 14p
       <h2>Small enough to read in an afternoon.</h2>
       <div class="facts">
         <p><b>Native</b>Swift and SwiftUI. A menu bar app with no Dock icon and no Electron.</p>
-        <p><b>Zero dependencies</b>About 1,600 lines. Build it yourself with one script in under a minute.</p>
+        <p><b>Zero dependencies</b>About 2,000 lines. Build it yourself with one script in under a minute.</p>
         <p><b>Yours</b>MIT licensed. Fork it, change the shortcut, change the colour.</p>
       </div>
     </section>
@@ -309,7 +309,7 @@ footer { padding: 40px 0 56px; border-top: 1px solid var(--line); font-size: 14p
   let items = [
     { kind: "text", text: "Meet at 10:30, second floor, room by the lift", app: "Messages", at: now - 2 * MIN, pinned: true },
     { kind: "color", text: "#29BBBB", app: "Figma", at: now - 4 * MIN },
-    { kind: "image", text: "Screenshot 2026-10-30 at 11.42.07", app: "Screenshot", at: now - 9 * MIN },
+    { kind: "image", text: "Image 2880x1800: Invoice #2041, due 15 November", app: "Screenshot", at: now - 9 * MIN },
     { kind: "link", text: "https://developer.apple.com/documentation/appkit/nspasteboard", app: "Safari", at: now - 14 * MIN },
     { kind: "text", text: "git rebase -i HEAD~3", app: "Terminal", at: now - 31 * MIN },
     { kind: "file", text: "Q4 roadmap.key", app: "Finder", at: now - 52 * MIN },
