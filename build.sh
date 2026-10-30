@@ -8,6 +8,7 @@
 # Signing: ad-hoc by default. Set CLIPSTACK_SIGN_IDENTITY to a self-signed
 # certificate in your keychain to keep a stable code identity, otherwise macOS
 # treats every rebuild as a new app and re-asks for Accessibility permission.
+# CLIPSTACK_SIGN_KEYCHAIN points codesign at a specific keychain (used by CI).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,6 +16,10 @@ APP_NAME="Clipstack"
 DIST="$ROOT/dist"
 APP="$DIST/$APP_NAME.app"
 IDENTITY="${CLIPSTACK_SIGN_IDENTITY:--}"
+KEYCHAIN_ARGS=()
+if [[ -n "${CLIPSTACK_SIGN_KEYCHAIN:-}" ]]; then
+    KEYCHAIN_ARGS=(--keychain "$CLIPSTACK_SIGN_KEYCHAIN")
+fi
 
 echo "==> Building release binary"
 swift build -c release --package-path "$ROOT"
@@ -38,7 +43,8 @@ cp "$ICNS" "$APP/Contents/Resources/Clipstack.icns"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 echo "==> Signing with identity: $IDENTITY"
-codesign --force --deep --options runtime --sign "$IDENTITY" "$APP"
+codesign --force --deep --options runtime ${KEYCHAIN_ARGS[@]+"${KEYCHAIN_ARGS[@]}"} \
+    --sign "$IDENTITY" "$APP"
 
 if [[ "${1:-}" == "--install" ]]; then
     echo "==> Installing to /Applications"
