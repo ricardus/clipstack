@@ -20,16 +20,19 @@
   <img src="docs/assets/hero.png" width="760" alt="Sketch of the Clipstack panel: a search field, type filters and a list of recent clips">
 </p>
 
-Press `Cmd+Shift+V` anywhere. Search what you copied, step through text, links,
-images, files and colours with the arrow keys, and paste it back into the app
-you were using. Screenshots land in the same list the moment you take them.
+Press `Cmd+Shift+V` anywhere (or any shortcut you pick). Search what you copied,
+step through text, links, images, files and colours with the arrow keys, and
+paste it back into the app you were using. Screenshots land in the same list the
+moment you take them, and you can find them later by the words in them.
 
 - **Local by design.** History lives in `~/Library/Application Support/Clipstack`.
   The app makes no network requests.
 - **Skips your secrets.** Password managers mark what they copy as concealed;
   Clipstack respects that and ignores 1Password, Bitwarden, Apple Passwords and
   friends entirely.
-- **Native and small.** Swift and SwiftUI, zero dependencies, about 1,600 lines.
+- **Searches inside screenshots.** Text in images is read on your Mac with
+  Apple's Vision framework, so "invoice" finds the screenshot of one.
+- **Native and small.** Swift and SwiftUI, zero dependencies, about 2,000 lines.
 
 ## Install
 
@@ -42,7 +45,7 @@ brew install ricardus/tap/clipstack
 **Manual**: download the zip from the
 [latest release](https://github.com/ricardus/clipstack/releases/latest), unzip
 it and drag `Clipstack.app` into `/Applications`. Requires macOS 14 (Sonoma) or
-later on Apple Silicon.
+later, on Apple Silicon or Intel.
 
 ### Opening it the first time
 
@@ -60,7 +63,9 @@ Homebrew does the second step for you. If you would rather not trust a binary,
 
 1. **Accessibility** (System Settings > Privacy & Security > Accessibility).
    Needed to send `Cmd+V` to the app you were using. Without it, picking an
-   entry still copies it; you paste by hand.
+   entry still copies it; you paste by hand. Releases are signed with the same
+   certificate every time, so the grant survives updates. (Coming from 1.0.0,
+   which was signed ad hoc, macOS asks once more.)
 2. **Desktop folder access**, the first time it reads the screenshot folder.
    Only needed for screenshot capture, which you can turn off in the menu.
 
@@ -68,7 +73,7 @@ Homebrew does the second step for you. If you would rather not trust a binary,
 
 | Action | Shortcut |
 |---|---|
-| Open history | `Cmd+Shift+V` |
+| Open history | `Cmd+Shift+V`, or your own: menu bar > Change Shortcut… |
 | Move selection | `↑` / `↓` |
 | Previous / next type filter | `←` / `→` (while the search field is empty) |
 | Paste selected | `Return` |
@@ -113,6 +118,12 @@ Text, links, images, files and colors, tagged with the app they came from, plus
 new screenshots appearing in the system screenshot folder (respects a custom
 `defaults write com.apple.screencapture location`).
 
+Images also go through on-device text recognition (Vision, `.accurate`, language
+detected automatically), one at a time in the background. The text is stored in
+the index next to the entry and searched like everything else; the row shows the
+first line of it. Images captured before this existed are read on the next
+launch. Turn it off with *Search Text in Images* in the menu bar.
+
 ## What it deliberately does not capture
 
 - Anything marked `org.nspasteboard.ConcealedType`, `TransientType` or
@@ -147,6 +158,8 @@ Stored in `UserDefaults` under `io.github.ricardus.clipstack`:
 | `historyLimit` | 500 | Max unpinned entries before the oldest are dropped |
 | `watchScreenshots` | true | Watch the screenshot folder |
 | `excludedBundleIDs` | see above | Apps never recorded |
+| `recognizeText` | true | Read the text in images so search finds it |
+| `hotKeyCode`, `hotKeyModifiers` | `V`, Cmd+Shift | The global shortcut, as a Carbon key code and modifier mask. Set it from the menu instead |
 
 ## Layout
 
@@ -159,6 +172,9 @@ Sources/Clipstack/
   ClipboardMonitor.swift changeCount polling and content typing
   ScreenshotWatcher.swift DispatchSource watch on the screenshot folder
   HotKey.swift           Carbon RegisterEventHotKey wrapper
+  Shortcut.swift         Key code + modifiers, and their ⇧⌘V label
+  ShortcutRecorder.swift The Change Shortcut window
+  TextRecognizer.swift   On-device OCR with Vision
   Paster.swift           Pasteboard writes and synthesised Cmd+V
   PanelController.swift  Floating panel, focus handling, key handling
   AppState.swift         Search, filters, keyboard selection
@@ -215,19 +231,26 @@ export CLIPSTACK_SIGN_IDENTITY="Clipstack Local"
 ./build.sh --install
 ```
 
-Releases are built by `.github/workflows/release.yml` on every `v*` tag.
+`CLIPSTACK_UNIVERSAL=1 ./build.sh` builds one binary for Apple Silicon and Intel.
+
+Releases are built by `.github/workflows/release.yml` on every `v*` tag:
+universal, and signed with a self-signed `Clipstack Release` certificate kept in
+the repository secrets `CLIPSTACK_CERT_P12` and `CLIPSTACK_CERT_PASSWORD`. That
+certificate buys no Gatekeeper trust, only a code identity that stays the same
+between releases. A fork without those secrets builds ad hoc.
 
 ## Known rough edges
 
-- The hotkey is hardcoded to `Cmd+Shift+V`. If another app owns it, registration
-  fails and the log says so; use the menu bar item meanwhile.
+- `Cmd+Shift+V` is also "paste without formatting" in Chrome, Slack and Google
+  Docs, and a global shortcut wins over all of them. Change it from the menu bar
+  if you use that. The recorder catches clashes with other global shortcuts, not
+  with menu shortcuts inside apps.
 - Opening the panel activates the app, so the previously frontmost app is
   captured on open and reactivated on paste. This is what Raycast and friends do
   too; a truly non-activating panel cannot host an editable search field.
-- No OCR on screenshots, no custom categories, no iCloud sync.
-- Apple Silicon only for the prebuilt download; Intel Macs can build from source.
-- Not notarized. Every update is a new code identity to macOS, so it asks for
-  Accessibility again.
+- No custom categories and no iCloud sync, on purpose: pins cover the first, and
+  the second would break the no-network promise.
+- Not notarized, so the first launch of a manual download needs *Open Anyway*.
 
 ## License
 

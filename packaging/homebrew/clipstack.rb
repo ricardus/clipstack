@@ -10,7 +10,6 @@ cask "clipstack" do
   homepage "https://ricardus.github.io/clipstack/"
 
   depends_on macos: ">= :sonoma"
-  depends_on arch: :arm64
 
   app "Clipstack.app"
 

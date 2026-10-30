@@ -48,6 +48,9 @@ struct ClipItem: Codable, Identifiable, Equatable {
     var pixelWidth: Int?
     var pixelHeight: Int?
     var byteSize: Int = 0
+    /// Text found in an image by on-device OCR. Nil until it has been tried,
+    /// "" when the image holds no text.
+    var recognizedText: String?
 
     /// Single-line text used by the list row and by the search filter.
     var preview: String {
@@ -61,13 +64,18 @@ struct ClipItem: Codable, Identifiable, Equatable {
             let paths = (text ?? "").split(separator: "\n").map { URL(fileURLWithPath: String($0)).lastPathComponent }
             return paths.joined(separator: ", ")
         case .image:
-            if let w = pixelWidth, let h = pixelHeight { return "Image \(w)x\(h)" }
-            return "Image"
+            let size = pixelWidth.flatMap { w in pixelHeight.map { h in "Image \(w)x\(h)" } } ?? "Image"
+            let firstLine = recognizedText?
+                .split(separator: "\n", omittingEmptySubsequences: true)
+                .first
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+            guard let firstLine, !firstLine.isEmpty else { return size }
+            return "\(size): \(firstLine)"
         }
     }
 
     var searchHaystack: String {
-        [preview, text ?? "", appName ?? ""].joined(separator: " ").lowercased()
+        [preview, text ?? "", recognizedText ?? "", appName ?? ""].joined(separator: " ").lowercased()
     }
 
     static func hash(_ data: Data) -> String {

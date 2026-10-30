@@ -1,5 +1,4 @@
 import AppKit
-import Carbon.HIToolbox
 import ServiceManagement
 import SwiftUI
 
@@ -12,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panelController: PanelController!
     private var toast: CaptureToast!
     private var hotKey: HotKey?
+    private var shortcutRecorder: ShortcutRecorder!
     private var statusItem: NSStatusItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -25,14 +25,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         monitor.start()
         if Preferences.shared.watchScreenshots { screenshots.start() }
 
-        // Cmd+Shift+V. Carbon modifier masks, not NSEvent ones.
-        hotKey = HotKey(keyCode: UInt32(kVK_ANSI_V),
-                        modifiers: UInt32(cmdKey | shiftKey)) { [weak self] in
-            self?.panelController.toggle()
-        }
-        if hotKey == nil {
-            NSLog("Clipstack: could not register Cmd+Shift+V, another app already owns it")
-        }
+        armHotKey()
+        setUpShortcutRecorder()
 
         setUpStatusItem()
 
@@ -52,6 +46,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store.flush()
     }
 
+    // MARK: - Hotkey
+
+    /// Registers the saved shortcut. On failure the menu says so and offers to
+    /// change it; the menu bar item keeps working meanwhile.
+    private func armHotKey() {
+        let shortcut = Preferences.shared.shortcut
+        hotKey = nil
+        hotKey = HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers) { [weak self] in
+            self?.panelController.toggle()
+        }
+        if hotKey == nil {
+            NSLog("Clipstack: could not register \(shortcut.displayString), another app already owns it")
+        }
+    }
+
+    private func setUpShortcutRecorder() {
+        shortcutRecorder = ShortcutRecorder()
+        // Suspended while recording, or pressing the current combination would
+        // toggle the panel instead of reaching the recorder.
+        shortcutRecorder.onBegin = { [weak self] in self?.hotKey = nil }
+        shortcutRecorder.onRecord = { shortcut in
+            // A trial registration: if Carbon accepts it, it is free. Dropped at
+            // once and armed for real when the recorder closes.
+            guard HotKey(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers, action: {}) != nil else {
+                return false
+            }
+            Preferences.shared.shortcut = shortcut
+            return true
+        }
+        shortcutRecorder.onEnd = { [weak self] in self?.armHotKey() }
+    }
+
     // MARK: - Menu bar
 
     private func setUpStatusItem() {
@@ -67,10 +93,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let show = NSMenuItem(title: "Show History",
                               action: #selector(showPanel),
-                              keyEquivalent: "v")
-        show.keyEquivalentModifierMask = [.command, .shift]
+                              keyEquivalent: "")
         show.target = self
+        show.tag = 3
         menu.addItem(show)
+
+        let shortcutItem = NSMenuItem(title: "Change Shortcut…",
+                                      action: #selector(changeShortcut),
+                                      keyEquivalent: "")
+        shortcutItem.target = self
+        shortcutItem.tag = 4
+        menu.addItem(shortcutItem)
 
         menu.addItem(.separator())
 
@@ -80,6 +113,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         screenshotsItem.target = self
         screenshotsItem.tag = 1
         menu.addItem(screenshotsItem)
+
+        let ocrItem = NSMenuItem(title: "Search Text in Images",
+                                 action: #selector(toggleTextRecognition),
+                                 keyEquivalent: "")
+        ocrItem.target = self
+        ocrItem.tag = 5
+        menu.addItem(ocrItem)
 
         let loginItem = NSMenuItem(title: "Launch at Login",
                                    action: #selector(toggleLaunchAtLogin),
@@ -114,10 +154,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panelController.show()
     }
 
+    @objc private func changeShortcut() {
+        shortcutRecorder.show(current: Preferences.shared.shortcut)
+    }
+
     @objc private func toggleScreenshots() {
         let enabled = !Preferences.shared.watchScreenshots
         Preferences.shared.watchScreenshots = enabled
         if enabled { screenshots.start() } else { screenshots.stop() }
+    }
+
+    @objc private func toggleTextRecognition() {
+        Preferences.shared.recognizeText.toggle()
+        store.recognizeTextIfNeeded()
     }
 
     @objc private func toggleLaunchAtLogin() {
@@ -147,5 +196,16 @@ extension AppDelegate: NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         menu.item(withTag: 1)?.state = Preferences.shared.watchScreenshots ? .on : .off
         menu.item(withTag: 2)?.state = Preferences.shared.launchAtLogin ? .on : .off
+        menu.item(withTag: 5)?.state = Preferences.shared.recognizeText ? .on : .off
+
+        // The key equivalent only labels the item; the hotkey does the work.
+        let shortcut = Preferences.shared.shortcut
+        if let show = menu.item(withTag: 3) {
+            show.keyEquivalent = hotKey == nil ? "" : shortcut.menuKeyEquivalent
+            show.keyEquivalentModifierMask = shortcut.modifierFlags
+        }
+        menu.item(withTag: 4)?.title = hotKey == nil
+            ? "\(shortcut.displayString) Is Taken, Change Shortcut…"
+            : "Change Shortcut…"
     }
 }

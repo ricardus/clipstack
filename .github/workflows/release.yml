@@ -1,5 +1,7 @@
 # Builds Clipstack.app on every version tag and attaches a zip to the release.
-# The app is ad-hoc signed and not notarized; see "Install" in the README.
+# The app is signed with a stable self-signed identity (so Accessibility
+# survives updates) but not notarized; see "Install" in the README. Without the
+# signing secrets, as in a fork, it falls back to ad-hoc signing.
 name: Release
 
 on:
@@ -12,6 +14,9 @@ permissions:
 jobs:
   release:
     runs-on: macos-15
+    env:
+      CLIPSTACK_CERT_P12: ${{ secrets.CLIPSTACK_CERT_P12 }}
+      CLIPSTACK_CERT_PASSWORD: ${{ secrets.CLIPSTACK_CERT_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
@@ -21,8 +26,18 @@ jobs:
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" Resources/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $GITHUB_RUN_NUMBER" Resources/Info.plist
 
+      - name: Import signing identity
+        if: env.CLIPSTACK_CERT_P12 != ''
+        run: |
+          echo "CLIPSTACK_SIGN_KEYCHAIN=$(./scripts/ci-keychain.sh)" >> "$GITHUB_ENV"
+          echo "CLIPSTACK_SIGN_IDENTITY=Clipstack Release" >> "$GITHUB_ENV"
+
       - name: Build
-        run: ./build.sh
+        env:
+          CLIPSTACK_UNIVERSAL: "1"
+        run: |
+          ./build.sh
+          lipo -archs dist/Clipstack.app/Contents/MacOS/Clipstack
 
       - name: Package
         run: |

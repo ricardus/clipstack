@@ -24,11 +24,14 @@ final class ClipStore: ObservableObject {
     private var blobsURL: URL { Self.baseURL.appendingPathComponent("blobs", isDirectory: true) }
 
     private var saveWorkItem: DispatchWorkItem?
+    private var isRecognizingText = false
     private var imageCache = NSCache<NSString, NSImage>()
 
     init() {
         try? FileManager.default.createDirectory(at: blobsURL, withIntermediateDirectories: true)
         load()
+        // Catches up on images captured before OCR existed or while it was off.
+        recognizeTextIfNeeded()
     }
 
     // MARK: - Reading
@@ -81,6 +84,7 @@ final class ClipStore: ObservableObject {
         trim()
         sortAndPersist()
         onCapture?(stored)
+        if stored.kind == .image { recognizeTextIfNeeded() }
     }
 
     func togglePin(_ item: ClipItem) {
@@ -102,6 +106,34 @@ final class ClipStore: ObservableObject {
             removeBlob(of: item)
         }
         items = survivors
+        persist()
+    }
+
+    // MARK: - Text recognition
+
+    /// Runs OCR over images that have not been read yet, one at a time and off
+    /// the main actor, newest first. Safe to call often: a pass already in
+    /// flight picks up whatever arrived meanwhile.
+    func recognizeTextIfNeeded() {
+        guard Preferences.shared.recognizeText, !isRecognizingText else { return }
+        isRecognizingText = true
+        Task { @MainActor in
+            defer { isRecognizingText = false }
+            while let item = items.first(where: { $0.kind == .image && $0.recognizedText == nil }) {
+                guard let url = blobURL(for: item) else {
+                    setRecognizedText("", for: item.id)
+                    continue
+                }
+                let text = await TextRecognizer.recognize(at: url)
+                setRecognizedText(text, for: item.id)
+            }
+        }
+    }
+
+    /// No re-sort: reading an image does not make it more recent.
+    private func setRecognizedText(_ text: String, for id: UUID) {
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        items[index].recognizedText = text
         persist()
     }
 
